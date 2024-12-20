@@ -11,21 +11,22 @@ class SupportStates(StatesGroup):
     waiting_for_content = State()
     waiting_for_admin_response = State()
 
-@router.callback_query(F.data == "shop")
+@router.callback_query(F.data == "support")
 async def start_support_dialog(callback: CallbackQuery, state: FSMContext):
 		await callback.answer()
 		await callback.message.answer("📝 Пожалуйста, напишите заголовок вашего обращения (до 100 слов)")
-    await state.set_state(SupportStates.waiting_for_title)
+		await state.set_state(SupportStates.waiting_for_title)
 
 @router.message(SupportStates.waiting_for_title)
 async def process_title(message: Message, state: FSMContext):
+    if message.photo:
+        await message.answer("❌ Вы не можете прикреплять фото к заголовку.")
+        return
+  
     if (len(message.text.split()) > 100):
         await message.answer("❌ Заголовок слишком длинный! Пожалуйста, сократите его до 100 слов.")
         return
 
-    if message.photo:
-        await message.answer("❌ Вы не можете прикреплять фото к заголовку.")
-        return
     
     await state.update_data(title=message.text)
     await message.answer("📨 Теперь опишите вашу проблему подробно. Вы можете прикрепить фото к сообщению.")
@@ -68,12 +69,13 @@ async def process_content(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("answer_"))
 async def admin_answer(callback: CallbackQuery, state: FSMContext):
-		await callback.answer()
+    await callback.answer()
     user_id = int(callback.data.split("_")[1])
     await state.update_data(user_id=user_id)
     await callback.message.delete()
     await callback.message.answer("📝 Введите ответ пользователю. Вы можете прикрепить фото.")
     await state.set_state(SupportStates.waiting_for_admin_response)
+    
 
 @router.message(SupportStates.waiting_for_admin_response)
 async def send_admin_response(message: Message, state: FSMContext):
@@ -101,8 +103,8 @@ async def send_admin_response(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("cancel_"))
 async def cancel_request(callback: CallbackQuery):
-		await callback.answer()
-
+    await callback.answer()
+    
     user_id = int(callback.data.split("_")[1])
     await callback.message.delete()
     

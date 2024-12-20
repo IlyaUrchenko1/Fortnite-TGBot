@@ -1,9 +1,10 @@
 from aiogram import Router, F
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message
-from keyboards.user_keyboards import start_bot_menu
+from aiogram.types import Message, CallbackQuery
+from keyboards.user_keyboards import start_bot_menu, admin_menu
 from utils.database import Database
+from utils.varibles import ADMIN_IDS
 
 router = Router()
 db = Database()
@@ -14,7 +15,6 @@ async def start_command(message: Message, command: CommandStart):
     try:
         await message.delete()
         
-        # Получаем ID пользователя из сообщения
         user_id = str(message.from_user.id)
         username = message.from_user.username or "Пользователь"
         
@@ -24,9 +24,13 @@ async def start_command(message: Message, command: CommandStart):
         if is_new_user:
             try:
                 # Получаем ID реферера из команды старт (если есть)
-                referrer_id = int(command.args) if command.args else None
-                # Добавляем нового пользователя
-                db.add_user(user_id, referrer_id)
+                try:
+                    referrer_id = int(command.args) if command.args and command.args.isdigit() else None
+                    # Добавляем нового пользователя
+                    db.add_user(user_id, referrer_id)
+                except (ValueError, TypeError):
+                    # Если не удалось преобразовать ID реферера, добавляем пользователя без реферера
+                    db.add_user(user_id, None)
                 
                 welcome_text = (
                     f"👋 Добро пожаловать, {username}!\n\n"
@@ -58,6 +62,9 @@ async def start_command(message: Message, command: CommandStart):
             sticker="CAACAgUAAxkBAAKaVWdcYC51Dyz9QQpepSLGgOPQK_MMAAJdEQACr3tRVZEquUWHNk4oNgQ"
         )
         
+        if message.from_user.id in ADMIN_IDS:
+            await message.bot.send_message(chat_id=message.chat.id, text="Поскольку вы админ, вы можете использовать следующие команды:", reply_markup=admin_menu())
+        
     except Exception as e:
         error_message = f"❌ Произошла ошибка при обработке команды: {str(e)}"
         await message.bot.send_message(chat_id=message.chat.id, text=error_message)
@@ -66,10 +73,15 @@ async def start_command(message: Message, command: CommandStart):
 @router.message(F.text == "🏠 Вернуться назад")
 async def return_to_main_menu(message: Message, state: FSMContext):
     await state.clear()
-    # await message.answer(" ", reply_markup=None) - не работает
-    # await message.delete_reply_markup() - не работает
-    await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id - 1)
+    await message.delete()
     await message.answer("⬇️ Вы вернулись в главное меню ⬇️", reply_markup=start_bot_menu())
+    
+@router.callback_query(F.data == "to_home_menu")
+async def return_to_main_menu(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.delete()
+    await callback.message.answer("⬇️ Вы вернулись в главное меню ⬇️", reply_markup=start_bot_menu())
+
 
 
 @router.message(F.text == "/get_id")

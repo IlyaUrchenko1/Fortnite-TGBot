@@ -5,8 +5,19 @@ router = Router()
 
 
 @router.callback_query(lambda cq: cq.data == "reviews")
-async def get_rate_of_gold(callback: CallbackQuery):
+async def get_info_reviews(callback: CallbackQuery):
     await callback.answer()
+    
+    try:
+        await callback.message.bot.delete_message(
+            chat_id=callback.message.chat.id,
+            message_id=callback.message.message_id + 1
+        )
+    except:
+        print("delete_message error in get_info_reviews")
+        pass
+            
+    await callback.message.delete()
     
     reviews_text = (
         "Привет! 🌟\n\n"
@@ -20,6 +31,10 @@ async def get_rate_of_gold(callback: CallbackQuery):
         [InlineKeyboardButton(
             text="📝 Посмотреть отзывы",
             url="https://t.me/arafortreviews"
+        )],
+        [InlineKeyboardButton(
+            text="🏠 Вернуться в главное меню",
+            callback_data="to_home_menu"
         )]
     ])
 

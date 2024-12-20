@@ -8,6 +8,9 @@ class PrivateChatMiddleware(BaseMiddleware):
             #return await handler(event, data)
             
         # Остальные команды только в приватных чатах
+        if event.text == "/get_id":
+            return await handler(event, data)
+        
         if event.chat.type != 'private':
             await event.answer("Эта команда доступна только в личных сообщениях.")
             return

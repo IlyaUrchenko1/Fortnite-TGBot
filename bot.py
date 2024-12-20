@@ -9,12 +9,16 @@ from aiogram.client.default import DefaultBotProperties
 from middlewares.antiflood import AntiFloodMiddleware
 from middlewares.private_chat import PrivateChatMiddleware
 
-from handlers import main_handler
+from handlers import leave_reviews_handler, main_handler
 from handlers.main_handlers import (
     info_reviews_handler,
-    leave_reviews_handler,
-    warranty_handler
+    warranty_handler,
+    support_handler,
+    profile_handler,
+    gift_certificate_handler,
+    shop_handler,
 )
+from handlers.admin_handlers import create_promocode
 
 load_dotenv()
 
@@ -31,6 +35,12 @@ async def main():
         info_reviews_handler.router,
         leave_reviews_handler.router,
         warranty_handler.router,
+        support_handler.router,
+        profile_handler.router
+    )
+    
+    dp.include_routers(
+        create_promocode.router
     )
 
     try:

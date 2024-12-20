@@ -6,6 +6,15 @@ router = Router()
 @router.callback_query(F.data == "guarantees")
 async def show_warranty_info(callback: CallbackQuery):
     try:
+        try:
+            await callback.message.bot.delete_message(
+                chat_id=callback.message.chat.id,
+                message_id=callback.message.message_id + 1
+            )
+        except:
+            print("delete_message error in show_warranty_info")
+            pass
+            
         await callback.message.delete()
         
         warranty_text = (
@@ -17,11 +26,14 @@ async def show_warranty_info(callback: CallbackQuery):
             "Ознакомьтесь с полными условиями гарантии, нажав на кнопку ниже 👇"
         )
 
-        # Создаем инлайн-кнопку для перехода к гарантиям
         warranty_button = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(
                 text="📋 Подробные условия гарантии",
                 url="https://telegra.ph/Garantii-12-19-2"
+            )],
+            [InlineKeyboardButton(
+                text="🏠 Вернуться в главное меню",
+                callback_data="to_home_menu"
             )]
         ])
 
