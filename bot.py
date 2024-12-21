@@ -8,6 +8,8 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from middlewares.antiflood import AntiFloodMiddleware
 from middlewares.private_chat import PrivateChatMiddleware
+from middlewares.work_set import WorkSetMiddleware
+from middlewares.check_ban import CheckBanMiddleware
 
 from handlers import leave_reviews_handler, main_handler
 from handlers.main_handlers import (
@@ -18,7 +20,11 @@ from handlers.main_handlers import (
     gift_certificate_handler,
     shop_handler,
 )
-from handlers.admin_handlers import create_promocode
+from handlers.admin_handlers import (create_promocode_hendler, 
+                                   ban_user_hendler,
+                                   manage_balance,
+                                   start_newsletter_hendler
+                                   )
 
 load_dotenv()
 
@@ -29,7 +35,9 @@ dp = Dispatcher()
 async def main():
     # dp.message.middleware(AntiFloodMiddleware(limit=1)) - антифлуд
     dp.message.middleware(PrivateChatMiddleware())
-    
+    dp.message.middleware(WorkSetMiddleware())
+    dp.message.middleware(CheckBanMiddleware())
+
     dp.include_routers(
         main_handler.router,
         info_reviews_handler.router,
@@ -38,10 +46,14 @@ async def main():
         support_handler.router,
         profile_handler.router
     )
-    
+
     dp.include_routers(
-        create_promocode.router
+        create_promocode_hendler.router,
+        ban_user_hendler.router,
+        manage_balance.router,
+        start_newsletter_hendler.router
     )
+
 
     try:
         await bot.delete_webhook(drop_pending_updates=True)

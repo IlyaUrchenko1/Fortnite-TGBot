@@ -1,5 +1,5 @@
 import sqlite3
-
+from datetime import datetime
 
 class Database:
     def __init__(self, db_name="fortnite_shop.db"):
@@ -12,6 +12,7 @@ class Database:
                     CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     telegram_id TEXT,
+                    telegram_username TEXT,
                     balance INTEGER DEFAULT 0,
                     refferer_id INTEGER,
                     amount_of_sale INTEGER DEFAULT 0,
@@ -33,12 +34,18 @@ class Database:
         ''')
 
     #region Users
-    def add_user(self, telegram_id: str, refferer_id: int = None) -> None:
-        self.cursor.execute('INSERT INTO users (telegram_id, refferer_id) VALUES (?, ?)', (telegram_id, refferer_id, ))
+    def add_user(self, telegram_id: str, telegram_username: str, refferer_id: int = None) -> None:
+        self.cursor.execute('INSERT INTO users (telegram_id, telegram_username, refferer_id) VALUES (?, ?, ?)', (telegram_id, telegram_username, refferer_id))
         self.connection.commit()
+
+    def get_all_users(self) -> list[tuple]:
+        return self.cursor.execute('SELECT * FROM users').fetchall()
 
     def get_user(self, telegram_id: str) -> tuple:
         return self.cursor.execute('SELECT * FROM users WHERE telegram_id = ?', (telegram_id,)).fetchone()
+
+    def get_user_by_username(self, telegram_username: str) -> tuple:
+        return self.cursor.execute('SELECT * FROM users WHERE telegram_username = ?', (telegram_username,)).fetchone()
 
     def update_user(self, telegram_id: str, balance: int = None, amount_of_sale: int = None, 
                    is_banned: bool = None, refferer_id: int = None) -> None:
@@ -78,6 +85,10 @@ class Database:
     def is_exists(self, telegram_id: str) -> bool:
         result = self.cursor.execute('SELECT EXISTS(SELECT 1 FROM users WHERE telegram_id=?)', (telegram_id,)).fetchone()
         return bool(result[0])
+    
+    def is_exists_by_username(self, telegram_username: str) -> bool:
+        result = self.cursor.execute('SELECT EXISTS(SELECT 1 FROM users WHERE telegram_username=?)', (telegram_username,)).fetchone()
+        return bool(result[0])
 
     def get_referrals(self, telegram_id: str) -> list[tuple]:
         return self.cursor.execute('SELECT * FROM users WHERE refferer_id = ?', (telegram_id,)).fetchall()
@@ -92,18 +103,48 @@ class Database:
         )
         self.connection.commit()
 
-    def get_promocode(self, code: str) -> tuple:
-        return self.cursor.execute('SELECT * FROM promocodes WHERE code = ?', (code,)).fetchone()
+    def get_promocode(self, code: str) -> tuple | None:
+        promo = self.cursor.execute('SELECT * FROM promocodes WHERE code = ?', (code,)).fetchone()
+        
+        if not promo:
+            return None
+            
+        # Проверяем срок действия и количество использований
+        valid_until = datetime.strptime(promo[5], "%Y-%m-%d %H:%M:%S")
+        max_uses = promo[3]
+        current_uses = promo[4] if promo[4] else 0
+        
+        if datetime.now() > valid_until or (max_uses and current_uses >= max_uses):
+            self.delete_promocode(code)
+            return None
+            
+        return promo
 
     def get_all_promocodes(self) -> list[tuple]:
-        return self.cursor.execute('SELECT * FROM promocodes').fetchall()
+        # Получаем все промокоды
+        promos = self.cursor.execute('SELECT * FROM promocodes').fetchall()
+        valid_promos = []
+        
+        # Фильтруем неактуальные промокоды
+        for promo in promos:
+            valid_until = datetime.strptime(promo[4], "%Y-%m-%d %H:%M:%S")
+            max_uses = promo[3]
+            current_uses = promo[2] if promo[2] else 0
+            
+            if datetime.now() <= valid_until and (not max_uses or current_uses < max_uses):
+                valid_promos.append(promo)
+            else:
+                self.delete_promocode(promo[0])
+                
+        return valid_promos
 
     def update_promocode(self, code: str, amount_uses: int = None, who_used_telegram_id: str = None, 
                         max_amount_uses: int = None, valid_until: str = None, 
                         amount_of_money: int = None, amount_of_sale: int = None) -> None:
-        """
-        Обновляет данные промокода. Обязателен только параметр code, остальные опциональны.
-        """
+        promo = self.get_promocode(code)
+        if not promo:
+            return
+            
         update_parts = []
         params = []
 
@@ -112,7 +153,7 @@ class Database:
             params.append(amount_uses)
             
         if who_used_telegram_id is not None:
-            current_users = self.get_promocode(code)[6]
+            current_users = promo[6]
             if current_users:
                 new_users = f"{current_users},{who_used_telegram_id}"
             else:
@@ -143,10 +184,10 @@ class Database:
             self.connection.commit()
 
     def get_promo_users(self, code: str) -> list[str]:
-        users = self.cursor.execute('SELECT who_used_telegram_id FROM promocodes WHERE code = ?', (code,)).fetchone()[0]
-        if users:
-            return users.split(',')
-        return []
+        promo = self.get_promocode(code)
+        if not promo or not promo[6]:
+            return []
+        return promo[6].split(',')
         
     def delete_promocode(self, code: str) -> None:
         """

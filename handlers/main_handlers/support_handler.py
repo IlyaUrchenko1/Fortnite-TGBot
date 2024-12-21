@@ -13,9 +13,21 @@ class SupportStates(StatesGroup):
 
 @router.callback_query(F.data == "support")
 async def start_support_dialog(callback: CallbackQuery, state: FSMContext):
-		await callback.answer()
-		await callback.message.answer("📝 Пожалуйста, напишите заголовок вашего обращения (до 100 слов)")
-		await state.set_state(SupportStates.waiting_for_title)
+    await callback.answer()
+    
+    try:
+        await callback.message.bot.delete_message(
+            chat_id=callback.message.chat.id,
+            message_id=callback.message.message_id + 1
+        )
+    except:
+        print("delete_message error in start_support_dialog")
+        pass
+        
+    await callback.message.delete()
+    
+    await callback.message.answer("📝 Пожалуйста, напишите заголовок вашего обращения (до 100 слов)")
+    await state.set_state(SupportStates.waiting_for_title)
 
 @router.message(SupportStates.waiting_for_title)
 async def process_title(message: Message, state: FSMContext):
@@ -46,11 +58,11 @@ async def process_content(message: Message, state: FSMContext):
         ]
     )
     
-    support_text = f"<h3>📋 Заголовок:</h3>\n{title}\n\n<h3>📝 Содержание:</h3>\n{message.text or 'Текст отсутствует'}"
+    support_text = f"📋 Заголовок:\n{title}\n\n📝 Содержание:\n{message.text or 'Текст отсутствует'}"
     
     if message.photo:
         await message.bot.send_photo(
-            chat_id="-1002360777828",
+            chat_id="-1002484230490",
             photo=message.photo[-1].file_id,
             caption=support_text,
             reply_markup=keyboard,
@@ -58,7 +70,7 @@ async def process_content(message: Message, state: FSMContext):
         )
     else:
         await message.bot.send_message(
-            chat_id="-1002360777828",
+            chat_id="-1002484230490",
             text=support_text,
             reply_markup=keyboard,
             parse_mode="HTML"
@@ -82,7 +94,7 @@ async def send_admin_response(message: Message, state: FSMContext):
     data = await state.get_data()
     user_id = data['user_id']
     
-    response_text = "📨 <b>Ответ от администрации:</b>\n\n" + message.text
+    response_text = "📨 Ответ от администрации:\n\n" + message.text
     
     if message.photo:
         await message.bot.send_photo(

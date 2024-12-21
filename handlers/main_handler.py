@@ -12,6 +12,11 @@ db = Database()
 
 @router.message(CommandStart())
 async def start_command(message: Message, command: CommandStart):
+    if message.from_user.username == "":
+        await message.answer("❌ К сожелению наш бот работает толкьо с пользователями, у которых есть username. Пожалуйста, установите username и попробуйте снова.")
+        return
+    
+
     try:
         await message.delete()
         
@@ -27,10 +32,10 @@ async def start_command(message: Message, command: CommandStart):
                 try:
                     referrer_id = int(command.args) if command.args and command.args.isdigit() else None
                     # Добавляем нового пользователя
-                    db.add_user(user_id, referrer_id)
+                    db.add_user(user_id, username, referrer_id)
                 except (ValueError, TypeError):
                     # Если не удалось преобразовать ID реферера, добавляем пользователя без реферера
-                    db.add_user(user_id, None)
+                    db.add_user(user_id, username, None)
                 
                 welcome_text = (
                     f"👋 Добро пожаловать, {username}!\n\n"

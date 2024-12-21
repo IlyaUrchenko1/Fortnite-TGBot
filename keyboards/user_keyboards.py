@@ -37,6 +37,7 @@ def admin_menu() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
 
     keyboard.row(InlineKeyboardButton(text='🔖 Создать промокод', callback_data='create_promo_by_admin'))
+    keyboard.row(InlineKeyboardButton(text='🔖 Начать рассылку', callback_data='start_newsletter'))
     keyboard.row(InlineKeyboardButton(text='🚫 Бан пользователя', callback_data='ban_user_by_admin'))
     keyboard.row(InlineKeyboardButton(text='💲 Снять/Пополнить баланс', callback_data='manage_balance_by_admin'))
 
