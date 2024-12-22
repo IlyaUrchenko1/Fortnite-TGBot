@@ -37,7 +37,7 @@ async def show_profile(callback: CallbackQuery):
             f"👤 <b>Профиль пользователя</b>\n\n"
             f"🔢 ID в системе: #{system_id}\n"
             f"📱 Telegram ID: {callback.from_user.id}\n"
-            f"💰 Баланс: {user_data[3]} V-Bucks\n"
+            f"💰 Баланс: {user_data[3]}₽\n"
             f"👥 Рефералов: {len(db.get_referrals(str(callback.from_user.id)))}\n\n"
             f"Выберите действие:"
         )
@@ -71,12 +71,10 @@ async def process_balance_amount(message: Message, state: FSMContext):
         if amount < 100 or amount > 15000:
             raise ValueError
             
-        v_bucks = int(amount / course_v_baks_to_ruble)
-        
-        await state.update_data(amount=amount, v_bucks=v_bucks)
+        await state.update_data(amount=amount)
         
         await message.answer(
-            f"💎 За {amount}₽ вы получите {v_bucks} V-Bucks\n\n"
+            f"💎 Вы оплачиваете {amount}₽, и получаете на баланс {amount}₽ 🤩\n\n"
             "💳 Для оплаты переведите указанную сумму на карту:\n"
             "<code>2200 7006 3518 1125</code>\n\n"
             "📸 После оплаты отправьте скриншот чека",
@@ -108,11 +106,10 @@ async def process_payment_screenshot(message: Message, state: FSMContext):
             "💰 <b>Новое пополнение баланса!</b>\n\n"
             f"👤 Пользователь: {message.from_user.full_name} (@{message.from_user.username})\n"
             f"💵 Сумма: {data['amount']}₽\n"
-            f"💎 V-Bucks: {data['v_bucks']}"
         ),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text="✅ Принять", callback_data=f"approve_balance_{message.from_user.id}_{data['v_bucks']}"),
+                InlineKeyboardButton(text="✅ Принять", callback_data=f"approve_balance_{message.from_user.id}_{data['amount']}"),
                 InlineKeyboardButton(text="❌ Отклонить", callback_data=f"reject_balance_{message.from_user.id}")
             ]
         ])
@@ -129,15 +126,15 @@ async def process_payment_screenshot(message: Message, state: FSMContext):
 @router.callback_query(F.data.startswith("approve_balance_"))
 async def approve_balance_payment(callback: CallbackQuery):
     user_id = callback.data.split("_")[2]
-    v_bucks = int(callback.data.split("_")[3])
+    amount = int(callback.data.split("_")[3])
     
-    db.update_user(user_id, balance=v_bucks)
+    db.update_user(user_id, balance=amount)
     
     await callback.bot.send_message(
         chat_id=user_id,
         text=(
             "✅ <b>Поздравляем! Ваш баланс успешно пополнен!</b>\n\n"
-            f"💎 Начислено: {v_bucks} V-Bucks"
+            f"💎 Начислено: {amount}₽"
         ),
         reply_markup=get_back_keyboard()
     )

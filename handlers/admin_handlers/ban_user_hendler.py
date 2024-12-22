@@ -43,6 +43,8 @@ def get_banned_users_keyboard() -> InlineKeyboardBuilder:
 
 @router.callback_query(F.data == "ban_user_by_admin")
 async def show_banned_users(callback: CallbackQuery):
+    await callback.answer()
+    
     if callback.from_user.id not in ADMIN_IDS:
         await callback.message.answer("❌ У вас нет прав для использования этой команды!")
         return

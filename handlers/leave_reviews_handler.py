@@ -58,7 +58,7 @@ async def post_only_text(callback: CallbackQuery, state: FSMContext):
         text=f"{'⭐️' * rating}\n\n"
              f"⬇️{callback.from_user.full_name}⬇️\n"
              f"Решил промолчать...\n\n"
-             f"Вывел {amount_gold}В-Баксов, {date.today()}"
+             f"Вывел {amount_gold}В-Баксов , {date.today()}"
     )
 
     await state.update_data(has_left_review=True)

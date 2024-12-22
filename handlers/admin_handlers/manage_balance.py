@@ -28,7 +28,9 @@ def get_balance_action_keyboard() -> InlineKeyboardMarkup:
 
 @router.callback_query(F.data == "manage_balance_by_admin")
 async def start_manage_balance(callback: CallbackQuery, state: FSMContext):
-    if str(callback.from_user.id) not in ADMIN_IDS:
+    await callback.answer()
+    
+    if callback.from_user.id not in ADMIN_IDS:
         await callback.message.answer("❌ У вас нет прав для выполнения этой команды.")
         return
     

@@ -25,6 +25,12 @@ from handlers.admin_handlers import (create_promocode_hendler,
                                    manage_balance,
                                    start_newsletter_hendler
                                    )
+from handlers.main_handlers.shop_functions import (land_map, 
+                                                   gift_donate,
+                                                   code_donate,
+                                                   account_donate,
+                                                   battle_pass
+                                                   )
 
 load_dotenv()
 
@@ -34,7 +40,7 @@ dp = Dispatcher()
 
 async def main():
     # dp.message.middleware(AntiFloodMiddleware(limit=1)) - антифлуд
-    dp.message.middleware(PrivateChatMiddleware())
+    # dp.message.middleware(PrivateChatMiddleware())
     dp.message.middleware(WorkSetMiddleware())
     dp.message.middleware(CheckBanMiddleware())
 
@@ -52,6 +58,12 @@ async def main():
         ban_user_hendler.router,
         manage_balance.router,
         start_newsletter_hendler.router
+    )
+
+    dp.include_routers(
+        shop_handler.router,
+        land_map.router,
+        battle_pass.router  
     )
 
 

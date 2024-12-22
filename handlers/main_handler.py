@@ -20,6 +20,10 @@ async def start_command(message: Message, command: CommandStart):
     try:
         await message.delete()
         
+        if message.from_user.id in ADMIN_IDS:
+            await message.bot.send_message(chat_id=message.chat.id, text="Поскольку вы админ, вы можете использовать следующие команды:", reply_markup=admin_menu())
+
+
         user_id = str(message.from_user.id)
         username = message.from_user.username or "Пользователь"
         
@@ -67,9 +71,7 @@ async def start_command(message: Message, command: CommandStart):
             sticker="CAACAgUAAxkBAAKaVWdcYC51Dyz9QQpepSLGgOPQK_MMAAJdEQACr3tRVZEquUWHNk4oNgQ"
         )
         
-        if message.from_user.id in ADMIN_IDS:
-            await message.bot.send_message(chat_id=message.chat.id, text="Поскольку вы админ, вы можете использовать следующие команды:", reply_markup=admin_menu())
-        
+                
     except Exception as e:
         error_message = f"❌ Произошла ошибка при обработке команды: {str(e)}"
         await message.bot.send_message(chat_id=message.chat.id, text=error_message)
@@ -82,10 +84,20 @@ async def return_to_main_menu(message: Message, state: FSMContext):
     await message.answer("⬇️ Вы вернулись в главное меню ⬇️", reply_markup=start_bot_menu())
     
 @router.callback_query(F.data == "to_home_menu")
-async def return_to_main_menu(callback: CallbackQuery, state: FSMContext):
+async def cancel_newsletter_inline(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    
+    if callback.from_user.id in ADMIN_IDS:
+        await callback.message.edit_text(
+            "👨‍💻 Админ панель",
+            reply_markup=admin_menu()
+        )
+    else:
+        await callback.message.edit_text(
+            "🏠 Главное меню",
+            reply_markup=start_bot_menu()
+        )
     await state.clear()
-    await callback.message.delete()
-    await callback.message.answer("⬇️ Вы вернулись в главное меню ⬇️", reply_markup=start_bot_menu())
 
 
 
