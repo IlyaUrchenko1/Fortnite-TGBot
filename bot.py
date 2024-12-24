@@ -29,7 +29,7 @@ from handlers.main_handlers.shop_functions import (land_map,
                                                    gift_donate,
                                                    code_donate,
                                                    account_donate,
-                                                   battle_pass
+                                                   battle_pass,
                                                    )
 
 load_dotenv()
@@ -63,7 +63,8 @@ async def main():
     dp.include_routers(
         shop_handler.router,
         land_map.router,
-        battle_pass.router  
+        battle_pass.router,
+        code_donate.router
     )
 
 

@@ -87,16 +87,11 @@ async def return_to_main_menu(message: Message, state: FSMContext):
 async def cancel_newsletter_inline(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     
-    if callback.from_user.id in ADMIN_IDS:
-        await callback.message.edit_text(
-            "👨‍💻 Админ панель",
-            reply_markup=admin_menu()
-        )
-    else:
-        await callback.message.edit_text(
+    await callback.message.edit_text(
             "🏠 Главное меню",
             reply_markup=start_bot_menu()
         )
+        
     await state.clear()
 
 
