@@ -9,7 +9,7 @@ import secrets
 
 from keyboards.profile_keyboards import get_profile_keyboard, get_back_keyboard
 from keyboards.user_keyboards import to_home_menu_inline
-from utils.varibles import NICK_BOT, course_v_baks_to_ruble
+from utils.varibles import NICK_BOT, COURSE_V_BAKS_TO_RUBLE
 
 
 router = Router()
@@ -275,7 +275,7 @@ async def process_certificate_amount(message: Message, state: FSMContext):
 		if amount < 110 or amount > 15000:
 			raise ValueError
 			
-		v_bucks = int(amount / course_v_baks_to_ruble)
+		v_bucks = int(amount / COURSE_V_BAKS_TO_RUBLE)
 		
 		# Генерируем уникальный промокод
 		promo_code = f"GIFT_{secrets.token_hex(8).upper()}"

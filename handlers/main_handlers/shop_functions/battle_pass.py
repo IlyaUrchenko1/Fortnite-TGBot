@@ -7,7 +7,7 @@ from utils.database import Database
 import re
 import asyncio
 from datetime import datetime, timedelta
-from bot import bot
+from aiogram import Bot
 
 router = Router()
 db = Database()
@@ -23,13 +23,16 @@ class BattlePassStates(StatesGroup):
     waiting_for_join_confirmation = State()
     waiting_for_nickname_gift_system = State()
     confirm_purchase_gift_system = State()
+    waiting_for_nickname_account = State()
+    confirm_purchase_account = State()
 
 @router.callback_query(F.data == "shop_battle_pass")
 async def battle_pass_menu(callback: CallbackQuery, state: FSMContext):
     try:
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🎁 Донат обычным подарком (48 часов ожидания)", callback_data="donate_regular_bp")],
-            [InlineKeyboardButton(text="🎁 Донат через систему подарков (без ожидания)", callback_data="donate_gift_system_bp")],
+            [InlineKeyboardButton(text="🎁 Донат обычным подарком (720₽, 48 часов ожидания)", callback_data="donate_regular_bp")],
+            [InlineKeyboardButton(text="🎁 Донат через систему подарков (820₽, без ожидания)", callback_data="donate_gift_system_bp")],
+            [InlineKeyboardButton(text="🎁 Донат с заходом на аккаунт (820₽)", callback_data="donate_account_bp")],
             [InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")]
         ])
         await callback.message.edit_text(
@@ -290,10 +293,6 @@ async def cancel_purchase_regular(callback: CallbackQuery):
         print(f"Error in cancel_purchase_regular: {e}")
         await callback.answer("❌ Ошибка отмены покупки")
 
-
-
-
-
 @router.callback_query(F.data == "donate_gift_system_bp", BattlePassStates.waiting_for_donation_type)
 async def donate_gift_system_bp(callback: CallbackQuery, state: FSMContext):
     try:
@@ -445,7 +444,7 @@ async def start_timer_gift_system(user_id: int, hours: int):
         await asyncio.sleep(hours * 3600)
         if user_id in timers:
             del timers[user_id]
-        await bot.send_message(
+        await Bot.send_message(
             chat_id=user_id,
             text="⏰ Таймер на 48 часов истек. Если вы уже получили Battle Pass, пожалуйста, подтвердите получение."
         )
@@ -506,3 +505,202 @@ async def check_time(callback: CallbackQuery):
     except Exception as e:
         print(f"Error in check_time: {e}")
         await callback.answer("❌ Ошибка при проверке времени")
+
+@router.callback_query(F.data == "donate_account_bp", BattlePassStates.waiting_for_donation_type)
+async def donate_account_bp(callback: CallbackQuery, state: FSMContext):
+    try:
+        await callback.message.edit_text(
+            "🎁 <b>Донат с заходом на аккаунт</b>\n\n"
+            "✏️ Введите ваш никнейм в Fortnite:\n\n"
+            "ℹ️ Никнейм должен:\n"
+            "• Содержать от 3 до 16 символов\n" 
+            "• Состоять из букв, цифр и символов - _",
+            reply_markup=get_back_to_shop_keyboard()
+        )
+        await state.set_state(BattlePassStates.waiting_for_nickname_account)
+    except Exception as e:
+        print(f"Error in donate_account_bp: {e}")
+        await callback.answer("❌ Произошла ошибка. Попробуйте позже")
+
+@router.message(BattlePassStates.waiting_for_nickname_account)
+async def process_nickname_account(message: Message, state: FSMContext):
+    try:
+        # Проверка никнейма
+        if not 3 <= len(message.text) <= 16:
+            await message.answer(
+                "❌ Никнейм должен содержать от 3 до 16 символов",
+                reply_markup=get_back_to_shop_keyboard()
+            )
+            return
+                
+        if not re.match("^[a-zA-Z0-9-_]+$", message.text):
+            await message.answer(
+                "❌ Никнейм может содержать только буквы, цифры и символы - _",
+                reply_markup=get_back_to_shop_keyboard()
+            )
+            return
+
+        await state.update_data(nickname_account=message.text)
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Подтвердить", callback_data="confirm_bp_purchase_account")],
+            [InlineKeyboardButton(text="❌ Отменить", callback_data="cancel_bp_purchase_account")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")]
+        ])
+        
+        await message.answer(
+            f"📝 <b>Проверьте данные заказа:</b>\n\n"
+            f"👤 Никнейм: {message.text}\n"
+            f"💰 Стоимость: 820₽\n\n"
+            f"🎮 Battle Pass будет отправлен на ваш аккаунт после захода на аккаунт!\n\n"
+            "❓ Подтверждаете покупку?",
+            reply_markup=keyboard
+        )
+        await state.set_state(BattlePassStates.confirm_purchase_account)
+    except Exception as e:
+        print(f"Error in process_nickname_account: {e}")
+        await message.answer(
+            "❌ Произошла ошибка при обработке никнейма",
+            reply_markup=get_back_to_shop_keyboard()
+        )
+
+@router.callback_query(F.data == "confirm_bp_purchase_account", BattlePassStates.confirm_purchase_account)
+async def confirm_purchase_account(callback: CallbackQuery, state: FSMContext):
+    try:
+        user_data = await state.get_data()
+        user = db.get_user(telegram_id=callback.from_user.id)
+        
+        if not user:
+            await callback.message.edit_text(
+                "❌ Ошибка получения данных пользователя",
+                reply_markup=get_back_to_shop_keyboard()
+            )
+            await state.clear()
+            return
+
+        try:
+            balance = int(user[3])
+        except ValueError:
+            await callback.message.edit_text(
+                "❌ Некорректные данные пользователя. Пожалуйста, свяжитесь с поддержкой.",
+                reply_markup=get_back_to_shop_keyboard()
+            )
+            await state.clear()
+            return
+
+        if balance < 820:
+            await callback.message.edit_text(
+                f"❌ Недостаточно средств на балансе!\n\n"
+                f"💰 Необходимо: 820₽\n"
+                f"💳 Ваш баланс: {balance}₽\n\n"
+                "📥 Пополните баланс для совершения покупки",
+                reply_markup=get_back_to_shop_keyboard()
+            )
+            await state.clear()
+            return
+
+        admin_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Выдано", callback_data=f"bp_gift_sent_account_{callback.from_user.id}_{user_data['nickname_account']}"),
+                InlineKeyboardButton(text="❌ Отмена", callback_data=f"bp_gift_cancel_account_{callback.from_user.id}")
+            ],
+            [InlineKeyboardButton(text="📱 Связаться", url=f"tg://user?id={callback.from_user.id}")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")]
+        ])
+
+        await callback.bot.send_message(
+            chat_id="-1002389059389",
+            text=(
+                "🎮 <b>Новый заказ донат с заходом на аккаунт : Battle Pass!</b>\n\n"
+                f"👤 Покупатель: {callback.from_user.full_name}\n"
+                f"🔗 Username: @{callback.from_user.username}\n"
+                f"🆔 ID: <code>{callback.from_user.id}</code>\n"
+                f"🎯 Никнейм: {user_data['nickname_account']}\n"
+                f"💰 Сумма: 820₽"
+            ),
+            reply_markup=admin_keyboard
+        )
+
+        await callback.message.edit_text(
+            "✅ Заявка успешно создана!\n\n"
+            "⏳ Ожидайте подтверждения администратором.",
+            reply_markup=get_back_to_shop_keyboard()
+        )
+        await state.set_state(BattlePassStates.waiting_for_confirmation_regular)
+    except Exception as e:
+        print(f"Error in confirm_purchase_account: {e}")
+        await callback.message.edit_text(
+            "❌ Произошла ошибка при создании заказа",
+            reply_markup=get_back_to_shop_keyboard()
+        )
+        await state.clear()
+
+@router.callback_query(F.data.startswith("bp_gift_sent_account_"))
+async def gift_sent_account(callback: CallbackQuery):
+    try:
+        user_id = int(callback.data.split("_")[4])
+        nickname_fortnite = callback.data.split("_")[5]
+        admin_id = callback.from_user.id
+        
+        user = db.get_user(telegram_id=user_id)
+        if not user:
+            await callback.answer("❌ Пользователь не найден.")
+            return
+
+        nickname = user[2]  # Предполагается, что никнейм находится на индексе 2
+
+        # Сообщение пользователю
+        user_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")]
+        ])
+        
+        await callback.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🎁 Battle Pass будет отправлен на ваш аккаунт после захода на аккаунт!\n\n"
+                f"✅ Администрация подтвердила оплату.\n"
+                f"⏳ Ожидайте захода на аккаунт.\n"
+            ),
+            reply_markup=user_keyboard
+        )
+        
+        # Сообщение администратору и владельцу
+        admin_keyboard_timer = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")]
+        ])
+        
+        await callback.bot.send_message(
+            chat_id="-1002389059389",
+            text=(
+                f"✅ Донат с заходом на аккаунт для пользователя @{nickname} подтвержден.\n"
+                f"Ожидайте захода на аккаунт для выдачи подарка пользователю на ник {nickname_fortnite}."
+            ),
+            reply_markup=admin_keyboard_timer
+        )
+        
+        await callback.message.edit_reply_markup()
+        await callback.answer("✅ Уведомления отправлены")
+    except Exception as e:
+        print(f"Error in gift_sent_account: {e}")
+        await callback.answer("❌ Ошибка отправки уведомления")
+
+@router.callback_query(F.data.startswith("bp_gift_cancel_account_"))
+async def cancel_purchase_account(callback: CallbackQuery):
+    try:
+        user_id = int(callback.data.split("_")[4])
+        
+        await callback.bot.send_message(
+            chat_id=user_id,
+            text=(
+                "❌ Ваша покупка Battle Pass отменена\n\n"
+                "💭 Если есть вопросы - обратитесь в поддержку\n"
+                "💰 Средства останутся на балансе"
+            ),
+            reply_markup=get_back_to_shop_keyboard()
+        )
+        
+        await callback.message.edit_reply_markup()
+        await callback.answer("❌ Покупка отменена")
+    except Exception as e:
+        print(f"Error in cancel_purchase_account: {e}")
+        await callback.answer("❌ Ошибка отмены покупки")
