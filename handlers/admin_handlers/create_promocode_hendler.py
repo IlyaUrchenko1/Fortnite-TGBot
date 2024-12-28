@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from datetime import datetime, timedelta
 from utils.database import Database
-from utils.varibles import ADMIN_IDS
+from utils.constants import ADMIN_IDS
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -49,8 +49,8 @@ async def create_promo_start(callback_query: CallbackQuery, state: FSMContext):
             promo_keyboard = InlineKeyboardBuilder()
             for promo in all_promocodes:
                 code = promo[1]
-                used = promo[4]
-                max_uses = promo[3]
+                used = str(promo[4]) # Convert to string
+                max_uses = str(promo[3]) # Convert to string
                 button_text = f"{code} ({used}/{max_uses})"
                 promo_keyboard.add(InlineKeyboardButton(
                     text=button_text,
@@ -76,6 +76,7 @@ async def create_promo_start(callback_query: CallbackQuery, state: FSMContext):
             await state.set_state(CreatePromoStates.waiting_for_code)
         
     except Exception as e:
+        print(f"Error in create_promo_start: {str(e)}")
         await callback_query.message.answer(f"❌ Произошла ошибка: {str(e)}")
 
 @router.message(CreatePromoStates.waiting_for_code)
@@ -313,6 +314,9 @@ async def view_promo(callback_query: CallbackQuery, state: FSMContext):
         else:
             promo_type_text = "Неизвестный тип промокода"
 
+        # Convert valid_until to string if it's not already
+        valid_until_str = valid_until.strftime("%Y-%m-%d %H:%M:%S") if isinstance(valid_until, datetime) else str(valid_until)
+
         promo_details = (
             f"⬇️ Детали промокода ⬇️\n\n"
             f"**Код:** {code}\n"
@@ -320,7 +324,7 @@ async def view_promo(callback_query: CallbackQuery, state: FSMContext):
             f"**Сколько дает:** {f'{amount_of_money} V-Bucks' if amount_of_money else f'{amount_of_sale}%'}\n"
             f"**Максимальное количество использований:** {amount_uses}/{max_amount_uses}\n"
             f"**Использовано:** {amount_uses}\n"
-            f"**Действителен до:** {valid_until}\n"
+            f"**Действителен до:** {valid_until_str}\n"
         )
 
         keyboard = InlineKeyboardBuilder()

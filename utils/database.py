@@ -121,20 +121,26 @@ class Database:
         return promo
 
     def get_all_promocodes(self) -> list[tuple]:
+        """Получает все действующие промокоды из базы данных"""
         # Получаем все промокоды
         promos = self.cursor.execute('SELECT * FROM promocodes').fetchall()
         valid_promos = []
         
         # Фильтруем неактуальные промокоды
         for promo in promos:
-            valid_until = datetime.strptime(promo[4], "%Y-%m-%d %H:%M:%S")
-            max_uses = promo[3]
-            current_uses = promo[2] if promo[2] else 0
-            
-            if datetime.now() <= valid_until and (not max_uses or current_uses < max_uses):
-                valid_promos.append(promo)
-            else:
-                self.delete_promocode(promo[0])
+            try:
+                valid_until = datetime.strptime(promo[5], "%Y-%m-%d %H:%M:%S")  # Исправлен индекс для valid_until
+                max_uses = promo[3]
+                current_uses = promo[4] if promo[4] else 0  # Исправлен индекс для current_uses
+                
+                if datetime.now() <= valid_until and (not max_uses or current_uses < max_uses):
+                    valid_promos.append(promo)
+                else:
+                    # Удаляем неактуальный промокод
+                    self.delete_promocode(promo[1])  # Используем индекс для code
+            except (ValueError, IndexError) as e:
+                print(f"Ошибка при обработке промокода: {e}")
+                continue
                 
         return valid_promos
 

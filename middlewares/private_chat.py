@@ -1,11 +1,11 @@
 from aiogram import BaseMiddleware
 from aiogram.types import Message
-from utils.varibles import ADMIN_IDS
+from utils.constants import ADMIN_IDS
 class PrivateChatMiddleware(BaseMiddleware):
     async def __call__(self, handler, event: Message, data):
         # Разрешаем админам команды отовсюду
-        #if event.from_user.id in ADMIN_IDS:
-            #return await handler(event, data)
+        if event.from_user.id in ADMIN_IDS:
+            return await handler(event, data)
             
         # Остальные команды только в приватных чатах
         if event.text == "/get_id":

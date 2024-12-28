@@ -12,7 +12,6 @@ async def show_warranty_info(callback: CallbackQuery):
                 message_id=callback.message.message_id + 1
             )
         except:
-            print("delete_message error in show_warranty_info")
             pass
             
         await callback.message.delete()
@@ -31,17 +30,17 @@ async def show_warranty_info(callback: CallbackQuery):
                 text="📋 Подробные условия гарантии",
                 url="https://telegra.ph/Garantii-12-19-2"
             )],
-            [InlineKeyboardButton(
-                text="🏠 Вернуться в главное меню",
-                callback_data="to_home_menu"
-            )]
+            [
+                InlineKeyboardButton(
+                    text="🏠 Главное меню",
+                    callback_data="to_home_menu"
+                )
+            ]
         ])
 
         await callback.message.answer(
             text=warranty_text,
             reply_markup=warranty_button
         )
-        
     except Exception as e:
-        error_message = f"❌ Произошла ошибка при показе гарантий: {str(e)}"
-        await callback.message.answer(text=error_message)
+        await callback.message.answer(f"❌ Произошла ошибка: {str(e)}")

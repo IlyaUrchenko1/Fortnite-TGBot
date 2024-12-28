@@ -5,8 +5,8 @@ def get_shop_main_keyboard() -> InlineKeyboardBuilder:
     keyboard = InlineKeyboardBuilder()
     
     keyboard.row(
-        InlineKeyboardButton(text="🎁 Донат подарком", callback_data="shop_gift_donate"),
-        InlineKeyboardButton(text="🔑 Донат через код", callback_data="shop_code_donate")
+        InlineKeyboardButton(text="🎁 Донат подарком", callback_data="gift_shop_donate"),
+        InlineKeyboardButton(text="🔑 Донат ключом", callback_data="shop_code_donate")
     )
     
     keyboard.row(
@@ -15,14 +15,19 @@ def get_shop_main_keyboard() -> InlineKeyboardBuilder:
     )
     
     keyboard.row(InlineKeyboardButton(text="🗺 Купить Land Map", callback_data="shop_land_map"))
-
-    keyboard.row(InlineKeyboardButton(text="➡ Присоедениься к ситсеме подарков", callback_data="shop_gift_join"))
     
-    keyboard.row(InlineKeyboardButton(text="🏠 Вернуться в главное меню", callback_data="to_home_menu"))
+    keyboard.row(InlineKeyboardButton(text="➡ Присоединиться к системе подарков", callback_data="shop_gift_join"))
+    
+    keyboard.row(
+        InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")
+    )
     
     return keyboard.as_markup()
 
 def get_back_to_shop_keyboard() -> InlineKeyboardBuilder:
     keyboard = InlineKeyboardBuilder()
-    keyboard.row(InlineKeyboardButton(text="◀️ Назад в магазин", callback_data="shop"))
+    keyboard.row(
+        InlineKeyboardButton(text="◀️ Назад в магазин", callback_data="shop"),
+        InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")
+    )
     return keyboard.as_markup()

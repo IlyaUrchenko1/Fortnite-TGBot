@@ -31,8 +31,9 @@ async def battle_pass_menu(callback: CallbackQuery, state: FSMContext):
     try:
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🎁 Донат обычным подарком (720₽, 48 часов ожидания)", callback_data="donate_regular_bp")],
-            [InlineKeyboardButton(text="🎁 Донат через систему подарков (820₽, без ожидания)", callback_data="donate_gift_system_bp")],
+            [InlineKeyboardButton(text="🎁 Донат через систему подарков (720₽, без ожидания)", callback_data="donate_gift_system_bp")],
             [InlineKeyboardButton(text="🎁 Донат с заходом на аккаунт (820₽)", callback_data="donate_account_bp")],
+            [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_shop")],
             [InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")]
         ])
         await callback.message.edit_text(
@@ -359,7 +360,7 @@ async def process_nickname_gift_system(message: Message, state: FSMContext):
         await message.bot.send_message(
             chat_id="-1002389059389",
             text=(
-                "🎁 <b>Новый донат через систему подарков!</b>\n\n"
+                "🎁 <b>Новый донат через систему подарков на Battle Pass!</b>\n\n"
                 f"👤 Пользователь: {message.from_user.full_name}\n"
                 f"🔗 Username: @{message.from_user.username}\n"
                 f"🆔 ID: <code>{message.from_user.id}</code>\n"
@@ -457,6 +458,14 @@ async def gift_system_confirmed(callback: CallbackQuery):
         await callback.message.edit_text(
             "✅ Вы подтвердили зачисление Battle Pass.",
             reply_markup=get_back_to_shop_keyboard()
+        )
+        # Отправка запроса на отзыв
+        await callback.message.answer(
+            "Пожалуйста, оставьте отзыв о вашем опыте:",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="⭐️ Оставить отзыв", callback_data=f"leave_reviews_{callback.from_user.id}_720")],
+                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")]
+            ])
         )
     except Exception as e:
         print(f"Error in gift_system_confirmed: {e}")

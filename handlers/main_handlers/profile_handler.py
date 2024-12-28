@@ -9,7 +9,8 @@ import secrets
 
 from keyboards.profile_keyboards import get_profile_keyboard, get_back_keyboard
 from keyboards.user_keyboards import to_home_menu_inline
-from utils.varibles import NICK_BOT, COURSE_V_BAKS_TO_RUBLE
+from utils.constants import NICK_BOT, COURSE_V_BAKS_TO_RUBLE
+from utils.constants import CARD_NUMBER, OVERSEAS_CARD_NUMBER, MIN_VBUCKS_AMOUNT, MAX_VBUCKS_AMOUNT
 
 
 router = Router()
@@ -25,10 +26,7 @@ async def show_profile(callback: CallbackQuery):
                 message_id=callback.message.message_id + 1
             )
         except:
-            print("delete_message error in show_profile")
             pass
-            
-        await callback.message.delete()
         
         user_data = db.get_user(str(callback.from_user.id))
         system_id = ''.join([str(random.randint(0, 9)) for _ in range(8)])
@@ -42,7 +40,7 @@ async def show_profile(callback: CallbackQuery):
             f"Выберите действие:"
         )
         
-        await callback.message.answer(
+        await callback.message.edit_text(
             text=profile_text,
             reply_markup=get_profile_keyboard()
         )
@@ -68,15 +66,16 @@ async def add_balance(callback: CallbackQuery, state: FSMContext):
 async def process_balance_amount(message: Message, state: FSMContext):
     try:
         amount = float(message.text)
-        if amount < 100 or amount > 15000:
+        if amount < MIN_VBUCKS_AMOUNT or amount > MAX_VBUCKS_AMOUNT:
             raise ValueError
             
         await state.update_data(amount=amount)
         
         await message.answer(
             f"💎 Вы оплачиваете {amount}₽, и получаете на баланс {amount}₽ 🤩\n\n"
-            "💳 Для оплаты переведите указанную сумму на карту:\n"
-            "<code>2200 7006 3518 1125</code>\n\n"
+            "💳 Для оплаты переведите указанную сумму на одну из карт:\n\n"
+            f"🇷🇺 Российская карта:\n<code>{CARD_NUMBER}</code>\n\n"
+            f"🌍 Иностранная карта:\n<code>{OVERSEAS_CARD_NUMBER}</code>\n\n"
             "📸 После оплаты отправьте скриншот чека",
             reply_markup=get_back_keyboard()
         )
@@ -84,7 +83,7 @@ async def process_balance_amount(message: Message, state: FSMContext):
         
     except ValueError:
         await message.answer(
-            "❌ Пожалуйста, введите корректную сумму от 100₽ до 15000₽",
+            f"❌ Пожалуйста, введите корректную сумму от {MIN_VBUCKS_AMOUNT}₽ до {MAX_VBUCKS_AMOUNT}₽",
             reply_markup=get_back_keyboard()
         )
 
@@ -111,6 +110,10 @@ async def process_payment_screenshot(message: Message, state: FSMContext):
             [
                 InlineKeyboardButton(text="✅ Принять", callback_data=f"approve_balance_{message.from_user.id}_{data['amount']}"),
                 InlineKeyboardButton(text="❌ Отклонить", callback_data=f"reject_balance_{message.from_user.id}")
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ Назад", callback_data="back"),
+                InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")
             ]
         ])
     )
@@ -126,7 +129,7 @@ async def process_payment_screenshot(message: Message, state: FSMContext):
 @router.callback_query(F.data.startswith("approve_balance_"))
 async def approve_balance_payment(callback: CallbackQuery):
     user_id = callback.data.split("_")[2]
-    amount = int(callback.data.split("_")[3])
+    amount = callback.data.split("_")[3]
     
     db.update_user(user_id, balance=amount)
     
@@ -136,11 +139,16 @@ async def approve_balance_payment(callback: CallbackQuery):
             "✅ <b>Поздравляем! Ваш баланс успешно пополнен!</b>\n\n"
             f"💎 Начислено: {amount}₽"
         ),
-        reply_markup=get_back_keyboard()
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="⬅️ Назад", callback_data="back"),
+                InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")
+            ]
+        ])
     )
     
     await callback.message.edit_reply_markup()
-    await callback.answer("✅ Платеж подтвержден!")
+    await callback.answer("Баланс пополнен.")
 
 @router.callback_query(F.data.startswith("reject_balance_"))
 async def reject_balance_payment(callback: CallbackQuery):
@@ -287,10 +295,10 @@ async def process_certificate_amount(message: Message, state: FSMContext):
 			"🎊 <b>Подарочный сертификат Fortnite</b> 🎊\n\n"
 			"🎮 Поздравляем! Вы получили подарочный сертификат!\n\n"
 			f"💰 Номинал: {v_bucks} V-Bucks\n"
-			f"🎫 Промокод: <code>{promo_code}</code>\n\n"
+			f"🎫 Промокод: ...\n\n"
 			"📝 Как активировать:\n"
 			"1️⃣ Перейдите в раздел «Профиль»\n"
-			"2️⃣ Нажмите «Активировать промокод»\n"
+			"2️⃣ Н��жмите «Активировать промокод»\n"
 			"3️⃣ Введите код сертификата\n\n"
 			"💫 Желаем приятных покупок!\n"
 			"🤝 С уважением, команда Fortnite Shop"
@@ -318,7 +326,7 @@ async def process_payment(message: Message, state: FSMContext):
 
     data = await state.get_data()
     
-    # Отправляем на модерацию
+    # Отправляем на м��дерацию
     await message.bot.send_photo(
         chat_id="-1002360777828",
         photo=message.photo[-1].file_id,

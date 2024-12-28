@@ -3,118 +3,139 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.types import InlineKeyboardButton
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from utils.database import Database
-from utils.varibles import ADMIN_IDS
-from keyboards.user_keyboards import to_home_menu_inline
+from utils.constants import ADMIN_IDS
+from keyboards.user_keyboards import admin_menu, back_to_admin_menu
 
 router = Router()
 db = Database()
 
+# Состояния для FSM при бане пользователя
 class BanUserStates(StatesGroup):
     waiting_for_username = State()
 
-def get_banned_users_keyboard() -> InlineKeyboardBuilder:
+def get_banned_users_keyboard() -> InlineKeyboardMarkup:
+    """
+    Создает клавиатуру со списком забаненных пользователей
+    и кнопками управления
+    """
     keyboard = InlineKeyboardBuilder()
     
+    # Получаем всех забаненных пользователей
     users = db.get_all_users()
-    banned_users = [user for user in users if user[5]] # Check is_banned flag
+    banned_users = [user for user in users if user[6]] # Проверяем флаг is_banned
     
+    # Добавляем кнопки для каждого забаненного пользователя
     for user in banned_users:
-        user_id = user[1]  # telegram_id
-        username = user[1] # Using telegram_id as display name since we don't store usernames
+        telegram_id = user[1]
+        username = user[2] or "Без username" # Используем сохраненный username
         keyboard.row(InlineKeyboardButton(
-            text=f"{user_id} | {username}",
-            callback_data=f"unban_{user_id}"
+            text=f"@{username}",
+            callback_data=f"unban_{telegram_id}"
         ))
     
+    # Добавляем кнопки управления
     keyboard.row(InlineKeyboardButton(
         text="🔒 Забанить пользователя", 
         callback_data="ban_new_user"
     ))
     
-    keyboard.row(InlineKeyboardButton(
-        text="🏠 Вернуться в меню",
-        callback_data="to_home_menu"
-    ))
+    keyboard.row(
+        InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_admin_menu"),
+    )
     
-    return keyboard
+    return keyboard.as_markup()
 
 @router.callback_query(F.data == "ban_user_by_admin")
 async def show_banned_users(callback: CallbackQuery):
+    """Показывает список забаненных пользователей"""
     await callback.answer()
+    await callback.message.delete()
     
+    # Проверка прав администратора
     if callback.from_user.id not in ADMIN_IDS:
         await callback.message.answer("❌ У вас нет прав для использования этой команды!")
         return
         
     await callback.message.answer(
-        "👥 Список забаненных пользователей:\n"
-        "Нажмите на кнопку с пользователем, чтобы разбанить его\n"
-        "Или нажмите «Забанить пользователя» чтобы добавить нового",
-        reply_markup=get_banned_users_keyboard().as_markup()
+        "👥 <b>Список забаненных пользователей:</b>\n\n"
+        "• Нажмите на пользователя для разбана\n"
+        "• Нажмите «Забанить пользователя» для бана нового пользователя",
+        reply_markup=get_banned_users_keyboard(),
+        parse_mode="HTML"
     )
 
 @router.callback_query(F.data == "ban_new_user")
 async def request_username(callback: CallbackQuery, state: FSMContext):
-    await callback.message.answer(
-        "Введите username пользователя, которого хотите забанить\n"
-        "Username должен начинаться с @",
-        reply_markup=to_home_menu_inline()
+    """Запрашивает username пользователя для бана"""
+    await callback.answer()
+    await callback.message.edit_text(
+        "👤 Введите username пользователя для бана\n"
+        "❗️ Username должен начинаться с @",
+        reply_markup=back_to_admin_menu()
     )
     await state.set_state(BanUserStates.waiting_for_username)
 
 @router.message(BanUserStates.waiting_for_username)
 async def ban_user(message: Message, state: FSMContext):
-    username = message.text
-    
-    if not username.startswith('@'):
+    """Обрабатывает бан пользователя по username"""
+    if not message.text.startswith('@'):
         await message.answer(
             "❌ Username должен начинаться с @\n"
-            "Попробуйте еще раз",
-            reply_markup=to_home_menu_inline()
+            "Попробуйте еще раз:",
+            reply_markup=back_to_admin_menu()
+        )
+        return
+    
+    username = message.text[1:] # Убираем @
+    user = db.get_user_by_username(username)
+    
+    if not user:
+        await message.answer(
+            "❌ Пользователь не найден\n"
+            "Попробуйте еще раз:",
+            reply_markup=back_to_admin_menu()
+        )
+        return
+
+    # Проверяем, не забанен ли уже пользователь
+    if user[6]:
+        await message.answer(
+            "❌ Этот пользователь уже забанен",
+            reply_markup=back_to_admin_menu()
         )
         return
         
-    # Remove @ from username
-    telegram_username = username[1:]
-    
-    # Check if user exists
-    if not db.is_exists_by_username(telegram_username):
-        await message.answer(
-            "❌ Пользователь не найден\n"
-            "Попробуйте еще раз",
-            reply_markup=to_home_menu_inline()
-        )
-        return
-    
-    user = db.get_user_by_username(telegram_username)
-    # Ban user
+    # Баним пользователя
     db.update_user(user[1], is_banned=True)
     
     await message.answer(
-        f"✅ Пользователь {username} успешно забанен",
-        reply_markup=get_banned_users_keyboard().as_markup()
+        f"✅ Пользователь @{username} успешно заблокирован",
+        reply_markup=get_banned_users_keyboard()
     )
     await state.clear()
 
 @router.callback_query(F.data.startswith("unban_"))
 async def unban_user(callback: CallbackQuery):
-    telegram_id = callback.data.split("_")[1]
+    """Обрабатывает разбан пользователя"""
+    await callback.answer()
     
-    # Unban user
+    telegram_id = callback.data.split("_")[1]
+    user = db.get_user(telegram_id)
+    
+    if not user:
+        await callback.message.edit_text(
+            "❌ Пользователь не найден",
+            reply_markup=get_banned_users_keyboard()
+        )
+        return
+        
+    # Разбаниваем пользователя
     db.update_user(telegram_id, is_banned=False)
     
-    await callback.message.answer(
-        f"✅ Пользователь успешно разбанен",
-        reply_markup=get_banned_users_keyboard().as_markup()
+    await callback.message.edit_text(
+        f"✅ Пользователь @{user[2]} успешно разбанен",
+        reply_markup=get_banned_users_keyboard()
     )
-
-@router.callback_query(F.data == "to_home_menu", BanUserStates)
-async def cancel_ban(callback: CallbackQuery, state: FSMContext):
-    await callback.message.answer(
-        "❌ Операция отменена",
-        reply_markup=to_home_menu_inline()
-    )
-    await state.clear()

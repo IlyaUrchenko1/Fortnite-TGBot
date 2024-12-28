@@ -4,125 +4,209 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from utils.database import Database
 from keyboards.user_keyboards import to_home_menu_inline
-from handlers.main_handlers.shop_functions.code_donate import get_admin_confirm_keyboard_login
-from utils.varibles import COURSE_V_BAKS_TO_RUBLE
+from utils.constants import GROUP_ID_SERVICE_PROVIDER
+
 router = Router()
 db = Database()
 
-ADMIN_GROUP_CHAT_ID = -1002389059389
-
-# Состояния для кастомного доната
-class CustomDonateStates(StatesGroup):
-    entering_amount = State()
+class AccountLoginStates(StatesGroup):
+    choosing_package = State()
     confirming = State()
     entering_credentials = State()
     admin_confirmation = State()
 
-def get_custom_donate_keyboard():
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="✅ Подтвердить", callback_data="custom_confirm_donate")],
-            [InlineKeyboardButton(text="❌ Отменить", callback_data="custom_cancel_donate")]
-        ]
-    )
+def get_packages_keyboard():
+    packages = [
+        ("1000 в-баксов - 950₽", "acc_package_1000"),
+        ("2800 в-баксов - 1800₽", "acc_package_2800"), 
+        ("5000 в-баксов - 3000₽", "acc_package_5000"),
+        ("13500 в-баксов - 6500₽", "acc_package_13500")
+    ]
+    
+    buttons = [[InlineKeyboardButton(text=text, callback_data=data)] 
+               for text, data in packages]
+    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_shop")])
+    buttons.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")])
+    
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-def calculate_price(vbucks: int) -> float:
-    """Рассчитывает цену в рублях на основе количества в-баксов"""
-    base_rate = COURSE_V_BAKS_TO_RUBLE  # Базовый курс: 1 в-бакс = 0.95 рубля
-    return round(vbucks * base_rate, 2)
+def get_confirm_keyboard():
+    buttons = [
+        [InlineKeyboardButton(text="✅ Подтвердить", callback_data="acc_confirm_donate")],
+        [InlineKeyboardButton(text="❌ Отменить", callback_data="acc_cancel_donate")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_packages")],
+        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 @router.callback_query(F.data == "shop_account_donate")
-async def custom_donate_start(callback: CallbackQuery, state: FSMContext):
+async def account_donate_start(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
-        "💰 Введите желаемое количество в-баксов (минимум 50):\n\n"
-        f"Текущий курс: 1 в-бакс = {COURSE_V_BAKS_TO_RUBLE}₽"
-
+        "🎮 <b>Донат через вход в аккаунт</b>\n\n"
+        "ℹ️ Мы зайдем в ваш аккаунт, изменим регион и пополним в-баксы.\n"
+        "Выберите желаемый пакет:",
+        reply_markup=get_packages_keyboard()
     )
-    await state.set_state(CustomDonateStates.entering_amount)
+    await state.set_state(AccountLoginStates.choosing_package)
 
-@router.message(CustomDonateStates.entering_amount)
-async def process_custom_amount(message: Message, state: FSMContext):
-    try:
-        amount = int(message.text)
-        if amount < 50:
-            await message.answer(
-                "❌ Минимальная сумма доната - 50 в-баксов\n"
-                "Пожалуйста, введите сумму больше или равную 50"
-            )
-            return
-            
-        price = calculate_price(amount)
-        await state.update_data(amount=amount, price=price)
-        
-        await message.answer(
-            f"🎉 Вы хотите приобрести {amount} в-баксов за {price}₽\n\n"
-            "Подтверждаете заказ?",
-            reply_markup=get_custom_donate_keyboard()
-        )
-        await state.set_state(CustomDonateStates.confirming)
-        
-    except ValueError:
-        await message.answer(
-            "❌ Пожалуйста, введите корректное число в-баксов\n"
-            "Только цифры, без пробелов и других символов"
-        )
-
-@router.callback_query(F.data == "custom_cancel_donate")
-async def custom_donate_cancel(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(F.data == "back_to_packages")
+async def back_to_packages(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
-        "❌ Донат отменен. Вы можете вернуться в главное меню.", 
-        reply_markup=to_home_menu_inline()
+        "🎮 Выберите желаемый пакет:",
+        reply_markup=get_packages_keyboard()
+    )
+    await state.set_state(AccountLoginStates.choosing_package)
+
+@router.callback_query(F.data.startswith("acc_package_"))
+async def account_choose_package(callback: CallbackQuery, state: FSMContext):
+    amount = callback.data.split("_")[2]
+    
+    prices = {
+        "1000": "950₽",
+        "2800": "1800₽",
+        "5000": "3000₽",
+        "13500": "6500₽"
+    }
+
+    try:
+        price = prices[amount]
+        await state.update_data(amount=amount, price=price)
+        await callback.message.edit_text(
+            f"🎉 Вы выбрали {amount} в-баксов за {price}\n\n"
+            "⚠️ После подтверждения вам нужно будет отправить данные от аккаунта.\n"
+            "Подтверждаете выбор?",
+            reply_markup=get_confirm_keyboard()
+        )
+        await state.set_state(AccountLoginStates.confirming)
+    except KeyError:
+        await callback.message.edit_text(
+            "❌ Выбранный пакет не существует. Попробуйте снова.",
+            reply_markup=get_packages_keyboard()
+        )
+
+@router.callback_query(F.data == "acc_cancel_donate")
+async def account_cancel(callback: CallbackQuery, state: FSMContext):
+    await callback.message.edit_text(
+        "❌ Донат отменен. Вы можете вернуться в главное меню или начать заново.",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⬅️ Назад", callback_data="shop_account_donate")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")]
+        ])
     )
     await state.clear()
-    await callback.answer()
 
-@router.callback_query(F.data == "custom_confirm_donate")
-async def custom_donate_confirm(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(F.data == "acc_confirm_donate")
+async def account_confirm(callback: CallbackQuery, state: FSMContext):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_packages")],
+        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")]
+    ])
+    
     await callback.message.edit_text(
-        "🔑 Пожалуйста, введите ваш ник и пароль через пробел.\n\n"
-        "Пример: NickName Password123"
+        "✏️ Пожалуйста, отправьте данные от вашего аккаунта в формате:\n"
+        "<code>логин пароль</code>",
+        reply_markup=keyboard,
+        parse_mode="HTML"
     )
-    await state.set_state(CustomDonateStates.entering_credentials)
+    await state.set_state(AccountLoginStates.entering_credentials)
 
-@router.message(CustomDonateStates.entering_credentials)
-async def custom_donate_credentials(message: Message, state: FSMContext):
+@router.message(AccountLoginStates.entering_credentials)
+async def process_credentials(message: Message, state: FSMContext):
     try:
-        credentials = message.text.split()
-        if len(credentials) < 2:
-            await message.answer("❌ Пожалуйста, введите ник и пароль через пробел")
-            return
-            
-        nickname = credentials[0]
-        password = credentials[1]
-        
-        data = await state.get_data()
-        amount = data.get("amount")
-        price = data.get("price")
-        user_id = message.from_user.id
-        
         await message.delete()  # Удаляем сообщение с учетными данными
         
-        await message.bot.send_message(
-            ADMIN_GROUP_CHAT_ID,
-            f"🔔 Новый кастомный донат!\n\n"
-            f"Сумма: {amount} в-баксов\n"
-            f"Цена: {price}₽\n"
-            f"Ник: {nickname}\n"
-            f"Пароль: {password}\n\n"
-            f"User ID: {user_id}",
-            reply_markup=get_admin_confirm_keyboard_login(user_id)
-        )
+        credentials = message.text.split()
+        if len(credentials) != 2:
+            raise ValueError("Необходимо отправить логин и пароль через пробел")
+            
+        login, password = credentials
+        data = await state.get_data()
         
+        admin_message = (
+            "🎮 <b>Новый донат через вход в аккаунт!</b>\n\n"
+            f"👤 Покупатель: {message.from_user.full_name}\n"
+            f"🔗 Username: @{message.from_user.username}\n"
+            f"🆔 ID: <code>{message.from_user.id}</code>\n"
+            f"💰 Пакет: {data['amount']} в-баксов\n"
+            f"💵 Сумма: {data['price']}\n"
+            f"📧 Логин: {login}\n"
+            f"🔑 Пароль: {password}"
+        )
+
+        admin_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📱 Связаться", url=f"tg://user?id={message.from_user.id}")],
+            [
+                InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"admin_acc_confirm_{message.from_user.id}"),
+                InlineKeyboardButton(text="❌ Отклонить", callback_data=f"admin_acc_reject_{message.from_user.id}")
+            ]
+        ])
+
+        await message.bot.send_message(
+            GROUP_ID_SERVICE_PROVIDER,
+            admin_message,
+            reply_markup=admin_keyboard,
+            parse_mode="HTML"
+        )
+
         await message.answer(
-            "✅ Ваши данные отправлены администратору.\n"
-            "Ожидайте подтверждения.", 
+            "✅ Ваша заявка отправлена администратору!\n"
+            "⏳ Ожидайте подтверждения.",
             reply_markup=to_home_menu_inline()
         )
-        await state.set_state(CustomDonateStates.admin_confirmation)
+        await state.clear()
+
+    except Exception as e:
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="↩️ Попробовать снова", callback_data="acc_confirm_donate")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")]
+        ])
+        
+        await message.answer(
+            f"❌ Ошибка: {str(e)}\nПопробуйте еще раз.",
+            reply_markup=keyboard
+        )
+
+@router.callback_query(F.data.startswith("admin_acc_confirm_"))
+async def admin_confirm_account(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[3])
+    
+    try:
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⭐️ Оставить отзыв", callback_data=f"leave_reviews_{user_id}")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")]
+        ])
+        
+        await callback.bot.send_message(
+            user_id,
+            "✅ Ваша заявка подтверждена!\n"
+            "⏳ Администратор скоро выполнит пополнение.",
+            reply_markup=keyboard
+        )
+        
+        await callback.message.edit_text(
+            callback.message.text + "\n\n✅ Заявка подтверждена",
+            parse_mode="HTML"
+        )
         
     except Exception as e:
-        await message.answer(
-            "❌ Произошла ошибка при обработке данных.\n"
-            "Попробуйте еще раз или обратитесь в поддержку."
+        await callback.answer(f"Ошибка: {str(e)}")
+
+@router.callback_query(F.data.startswith("admin_acc_reject_"))
+async def admin_reject_account(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[3])
+    
+    try:
+        await callback.bot.send_message(
+            user_id,
+            "❌ Ваша заявка отклонена администратором.\n"
+            "Пожалуйста, свяжитесь с поддержкой.",
+            reply_markup=to_home_menu_inline()
         )
-        await state.clear()
+        
+        await callback.message.edit_text(
+            callback.message.text + "\n\n❌ Заявка отклонена",
+            parse_mode="HTML"
+        )
+        
+    except Exception as e:
+        await callback.answer(f"Ошибка: {str(e)}")

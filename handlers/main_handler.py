@@ -3,15 +3,16 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 from keyboards.user_keyboards import start_bot_menu, admin_menu
+from keyboards.shop_keyboards import get_shop_main_keyboard
 from utils.database import Database
-from utils.varibles import ADMIN_IDS
+from utils.constants import ADMIN_IDS
 
 router = Router()
 db = Database()
 
 
 @router.message(CommandStart())
-async def start_command(message: Message, command: CommandStart):
+async def start_command(message: Message, command: CommandStart = None):
     if message.from_user.username == "":
         await message.answer("❌ К сожелению наш бот работает толкьо с пользователями, у которых есть username. Пожалуйста, установите username и попробуйте снова.")
         return
@@ -34,7 +35,7 @@ async def start_command(message: Message, command: CommandStart):
             try:
                 # Получаем ID реферера из команды старт (если есть)
                 try:
-                    referrer_id = int(command.args) if command.args and command.args.isdigit() else None
+                    referrer_id = int(command.args) if command and command.args and command.args.isdigit() else None
                     # Добавляем нового пользователя
                     db.add_user(user_id, username, referrer_id)
                 except (ValueError, TypeError):
@@ -84,26 +85,35 @@ async def return_to_main_menu(message: Message, state: FSMContext):
     await message.answer("⬇️ Вы вернулись в главное меню ⬇️", reply_markup=start_bot_menu())
     
 @router.callback_query(F.data == "to_home_menu")
-async def cancel_newsletter_inline(callback: CallbackQuery, state: FSMContext):
+async def return_to_home(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-    
-    await callback.message.edit_text(
-            "🏠 Главное меню",
-            reply_markup=start_bot_menu()
-        )
-        
+    try:
+        await callback.message.edit_text("⬇️ Вы вернулись в главное меню ⬇️", reply_markup=start_bot_menu())
+    except:
+        await callback.message.answer("⬇️ Вы вернулись в главное меню ⬇️", reply_markup=start_bot_menu())
     await state.clear()
 
+@router.callback_query(F.data == "back_to_shop")
+async def back_to_shop(callback: CallbackQuery):
+    """Return to main shop menu"""
+    try:
+        await callback.message.edit_text(
+            text=(
+                "🏪 Добро пожаловать в магазин!\n\n"
+                "Выберите интересующий вас товар или услугу:"
+            ),
+            reply_markup=get_shop_main_keyboard()
+        )
+    except Exception as e:
+        await callback.message.answer(f"❌ Произошла ошибка: {str(e)}")
+        
+@router.callback_query(F.data == "back_to_admin_menu")
+async def back_to_admin_menu(callback: CallbackQuery):
+    await callback.answer()
+    await callback.message.edit_text("🔑 Админ-панель", reply_markup=admin_menu())
 
 
 @router.message(F.text == "/get_id")
 async def get_chat_id(message: Message):
-    try:
-        await message.answer(f"Chat id is: *{message.chat.id}*\nYour id is: *{message.from_user.id}*",
+    await message.answer(f"Chat id is: *{message.chat.id}*\nYour id is: *{message.from_user.id}*",
                              parse_mode='Markdown')
-    except Exception as e:
-        cid = message.chat.id
-        await message.answer(f"Ошибка(",
-                             parse_mode='Markdown')
-        await message.send_message(7814530746, f"Случилась *ошибка* в чате *{cid}*\nСтатус ошибки: `{e}`",
-                                   parse_mode='Markdown')

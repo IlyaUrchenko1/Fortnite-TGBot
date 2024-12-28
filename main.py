@@ -17,7 +17,6 @@ from handlers.main_handlers import (
     warranty_handler,
     support_handler,
     profile_handler,
-    gift_certificate_handler,
     shop_handler,
 )
 from handlers.admin_handlers import (create_promocode_hendler, 
@@ -40,8 +39,8 @@ dp = Dispatcher()
 
 async def main():
     dp.message.middleware(AntiFloodMiddleware(limit=1)) 
-    # dp.message.middleware(PrivateChatMiddleware())
-    # dp.message.middleware(WorkSetMiddleware())
+    dp.message.middleware(PrivateChatMiddleware())
+    dp.message.middleware(WorkSetMiddleware())
     dp.message.middleware(CheckBanMiddleware())
 
     dp.include_routers(

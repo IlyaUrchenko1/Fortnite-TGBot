@@ -14,7 +14,6 @@ async def get_info_reviews(callback: CallbackQuery):
             message_id=callback.message.message_id + 1
         )
     except:
-        print("delete_message error in get_info_reviews")
         pass
             
     await callback.message.delete()
@@ -32,10 +31,12 @@ async def get_info_reviews(callback: CallbackQuery):
             text="📝 Посмотреть отзывы",
             url="https://t.me/arafortreviews"
         )],
-        [InlineKeyboardButton(
-            text="🏠 Вернуться в главное меню",
-            callback_data="to_home_menu"
-        )]
+        [
+            InlineKeyboardButton(
+                text="🏠 Главное меню",
+                callback_data="to_home_menu"
+            )
+        ]
     ])
 
     await callback.message.answer(
