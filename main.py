@@ -10,6 +10,7 @@ from middlewares.antiflood import AntiFloodMiddleware
 from middlewares.private_chat import PrivateChatMiddleware
 from middlewares.work_set import WorkSetMiddleware
 from middlewares.check_ban import CheckBanMiddleware
+from middlewares.auto_register_user import AutoRegisterUserMiddleware
 
 from handlers import leave_reviews_handler, main_handler
 from handlers.main_handlers import (
@@ -30,6 +31,10 @@ from handlers.main_handlers.shop_functions import (account_login_donate, land_ma
                                                    battle_pass,
                                                    gift_system_join
                                                    )
+from handlers.main_handlers.shop_functions.BrawlStars import (
+    get_bp_brawl_handler,
+    gems_get_handler
+)
 
 load_dotenv()
 
@@ -40,8 +45,10 @@ dp = Dispatcher()
 async def main():
     dp.message.middleware(AntiFloodMiddleware(limit=1)) 
     dp.message.middleware(PrivateChatMiddleware())
-    dp.message.middleware(WorkSetMiddleware())
+    # dp.message.middleware(WorkSetMiddleware())
     dp.message.middleware(CheckBanMiddleware())
+    dp.message.middleware(AutoRegisterUserMiddleware())
+    dp.callback_query.middleware(AutoRegisterUserMiddleware())
 
     dp.include_routers(
         main_handler.router,
@@ -67,6 +74,11 @@ async def main():
         account_login_donate.router,
         gift_donate.router,
         gift_system_join.router
+    )
+    
+    dp.include_routers(
+        get_bp_brawl_handler.router,
+        gems_get_handler.router
     )
     
 

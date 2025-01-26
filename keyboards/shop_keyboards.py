@@ -1,7 +1,7 @@
 from aiogram.types import InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-def get_shop_main_keyboard() -> InlineKeyboardBuilder:
+def get_fortnite_shop_main_keyboard() -> InlineKeyboardBuilder:
     keyboard = InlineKeyboardBuilder()
     
     keyboard.row(
@@ -21,6 +21,17 @@ def get_shop_main_keyboard() -> InlineKeyboardBuilder:
     keyboard.row(
         InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")
     )
+    
+    return keyboard.as_markup()
+
+def get_brawl_stars_shop_main_keyboard() -> InlineKeyboardBuilder:
+    keyboard = InlineKeyboardBuilder()
+    
+    keyboard.row(InlineKeyboardButton(text="💎 Купить гемы", callback_data="brawl_stars_gems"))
+    
+    keyboard.row(InlineKeyboardButton(text="⭐️ Боевой пропуск", callback_data="brawl_stars_bp"))
+
+    keyboard.row(InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu"))
     
     return keyboard.as_markup()
 

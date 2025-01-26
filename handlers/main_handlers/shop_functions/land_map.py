@@ -5,7 +5,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from keyboards.user_keyboards import to_home_menu_inline
-from keyboards.shop_keyboards import get_shop_main_keyboard
+from keyboards.shop_keyboards import get_fortnite_shop_main_keyboard, get_brawl_stars_shop_main_keyboard
 from utils.database import Database
 
 router = Router()
@@ -97,13 +97,19 @@ async def process_purchase(callback: CallbackQuery):
             return
             
         if user[3] < LAND_MAP_PRICE:
+            keyboard = [
+                [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="add_balance")],
+                [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_shop")],
+                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")]
+            ]
             await callback.message.edit_text(
                 text=(
                     "❌ У вас недостаточно средств для покупки Land Map.\n"
                     f"Необходимо: {LAND_MAP_PRICE}₽\n"
-                    f"Ваш баланс: {user[3]}₽"
+                    f"Ваш баланс: {user[3]}₽\n\n"
+                    "💡 Нажмите кнопку ниже, чтобы пополнить баланс"
                 ),
-                reply_markup=get_land_map_keyboard()
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
             )
             return
 

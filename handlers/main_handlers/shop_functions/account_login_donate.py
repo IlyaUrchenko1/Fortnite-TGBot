@@ -70,6 +70,23 @@ async def account_choose_package(callback: CallbackQuery, state: FSMContext):
 
     try:
         price = prices[amount]
+        price_num = int(price.replace("₽", ""))
+        user_balance = db.get_user(str(callback.from_user.id)).get("balance", 0)
+        
+        if user_balance < price_num:
+            await callback.message.edit_text(
+                f"❌ На вашем балансе недостаточно средств!\n\n"
+                f"💰 Ваш баланс: {user_balance}₽\n"
+                f"💵 Стоимость пакета: {price}\n"
+                f"🔄 Необходимо пополнить: {price_num - user_balance}₽",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="💳 Пополнить баланс", callback_data="add_balance")],
+                    [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_packages")],
+                    [InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")]
+                ])
+            )
+            return
+
         await state.update_data(amount=amount, price=price)
         await callback.message.edit_text(
             f"🎉 Вы выбрали {amount} в-баксов за {price}\n\n"

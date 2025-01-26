@@ -129,12 +129,17 @@ async def confirm_purchase_regular(callback: CallbackQuery, state: FSMContext):
             return
 
         if balance < 720:
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="add_balance")],
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_shop")],
+                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")]
+            ])
             await callback.message.edit_text(
                 f"❌ Недостаточно средств на балансе!\n\n"
                 f"💰 Необходимо: 720₽\n"
                 f"💳 Ваш баланс: {balance}₽\n\n"
-                "📥 Пополните баланс для совершения покупки",
-                reply_markup=get_back_to_shop_keyboard()
+                "📥 Нажмите кнопку ниже, чтобы пополнить баланс",
+                reply_markup=keyboard
             )
             await state.clear()
             return
@@ -243,7 +248,7 @@ async def start_timer(user_id: int, hours: int):
             del timers[user_id]
         # Списываем баланс
         db.update_user(str(user_id), balance=-720)
-        await bot.send_message(
+        await Bot.send_message(
             chat_id=user_id,
             text="⏰ Таймер на 48 часов истек. Ваш баланс был списан на 720₽."
         )

@@ -1,9 +1,9 @@
 from aiogram import Router, F
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from keyboards.user_keyboards import start_bot_menu, admin_menu
-from keyboards.shop_keyboards import get_shop_main_keyboard
+from keyboards.shop_keyboards import get_fortnite_shop_main_keyboard, get_brawl_stars_shop_main_keyboard
 from utils.database import Database
 from utils.constants import ADMIN_IDS
 
@@ -13,11 +13,6 @@ db = Database()
 
 @router.message(CommandStart())
 async def start_command(message: Message, command: CommandStart = None):
-    if message.from_user.username == "":
-        await message.answer("❌ К сожелению наш бот работает толкьо с пользователями, у которых есть username. Пожалуйста, установите username и попробуйте снова.")
-        return
-    
-
     try:
         await message.delete()
         
@@ -97,15 +92,27 @@ async def return_to_home(callback: CallbackQuery, state: FSMContext):
 async def back_to_shop(callback: CallbackQuery):
     """Return to main shop menu"""
     try:
+        try:
+            await callback.message.bot.delete_message(
+                chat_id=callback.message.chat.id,
+                message_id=callback.message.message_id + 1
+            )
+        except:
+            pass
+
+        games_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🎮 Fortnite", callback_data="fortnite_shop")],
+            [InlineKeyboardButton(text="⭐️ Brawl Stars", callback_data="brawl_stars")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")]
+        ])
+        
         await callback.message.edit_text(
-            text=(
-                "🏪 Добро пожаловать в магазин!\n\n"
-                "Выберите интересующий вас товар или услугу:"
-            ),
-            reply_markup=get_shop_main_keyboard()
+            text="🎮 Выберите игру для покупки:",
+            reply_markup=games_keyboard
         )
-    except Exception as e:
-        await callback.message.answer(f"❌ Произошла ошибка: {str(e)}")
+    except:
+        print("delete_message error in back_to_shop")
+        pass
         
 @router.callback_query(F.data == "back_to_admin_menu")
 async def back_to_admin_menu(callback: CallbackQuery):

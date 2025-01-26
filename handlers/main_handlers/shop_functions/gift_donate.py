@@ -103,7 +103,7 @@ async def donate_regular_gift(callback: CallbackQuery, state: FSMContext):
             "🎁 <b>Донат обычным подарком</b>\n\n"
             "💰 Курс: 100 V-Buck = 55₽\n"
             "💳 Минимальная сумма: 50₽\n\n"
-            "💰 Введите сумму в рублях :",
+            "💎 Введите количество V-Bucks, которое вы хотите получить:",
             reply_markup=get_back_to_shop_keyboard()
         )
         await state.set_state(GiftDonateStates.waiting_for_amount)
@@ -115,7 +115,9 @@ async def donate_regular_gift(callback: CallbackQuery, state: FSMContext):
 async def process_amount(message: Message, state: FSMContext):
     try:
         # Remove any non-digit characters
-        amount = int(''.join(filter(str.isdigit, message.text)))
+        vbucks = int(''.join(filter(str.isdigit, message.text)))
+        
+        amount = vbucks * 0.55  # Convert V-Bucks to rubles based on rate
         
         if amount < 50:
             await message.answer(
@@ -124,7 +126,7 @@ async def process_amount(message: Message, state: FSMContext):
             )
             return
             
-        await state.update_data(amount=amount)
+        await state.update_data(amount=amount, vbucks=vbucks)
         await message.answer(
             "✏️ Введите ваш никнейм в Fortnite:\n\n"
             "ℹ️ Никнейм должен:\n"
@@ -135,13 +137,13 @@ async def process_amount(message: Message, state: FSMContext):
         await state.set_state(GiftDonateStates.waiting_for_nickname_regular)
     except ValueError:
         await message.answer(
-            "❌ Введите корректную сумму числом",
+            "❌ Введите корректное количество V-Bucks числом",
             reply_markup=get_back_to_shop_keyboard()
         )
     except Exception as e:
         print(f"Error in process_amount: {e}")
         await message.answer(
-            "❌ Произошла ошибка при обработке суммы",
+            "❌ Произошла ошибка при обработке количества V-Bucks",
             reply_markup=get_back_to_shop_keyboard()
         )
 
@@ -165,7 +167,7 @@ async def process_nickname_regular(message: Message, state: FSMContext):
 
         user_data = await state.get_data()
         amount = user_data['amount']
-        vbucks = int(amount / 0.55)  # Convert rubles to V-Bucks based on rate
+        vbucks = user_data['vbucks']
         
         await state.update_data(nickname=nickname, vbucks=vbucks)
         
@@ -219,12 +221,16 @@ async def confirm_purchase_regular(callback: CallbackQuery, state: FSMContext):
             return
 
         if balance < amount:
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="add_balance")],
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_shop")]
+            ])
             await callback.message.edit_text(
                 f"❌ Недостаточно средств на балансе!\n\n"
                 f"💰 Необходимо: {amount}₽\n"
                 f"💳 Ваш баланс: {balance}₽\n\n"
-                "📥 Пополните баланс для совершения покупки",
-                reply_markup=get_back_to_shop_keyboard()
+                "📥 Нажмите кнопку ниже, чтобы пополнить баланс",
+                reply_markup=keyboard
             )
             await state.clear()
             return

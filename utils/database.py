@@ -38,7 +38,7 @@ class Database:
         self.cursor.execute('INSERT INTO users (telegram_id, telegram_username, refferer_id) VALUES (?, ?, ?)', (telegram_id, telegram_username, refferer_id))
         self.connection.commit()
 
-    def get_all_users(self) -> list[tuple]:
+    def get_all_users(self) -> list:
         return self.cursor.execute('SELECT * FROM users').fetchall()
 
     def get_user(self, telegram_id: str) -> tuple:
@@ -90,20 +90,20 @@ class Database:
         result = self.cursor.execute('SELECT EXISTS(SELECT 1 FROM users WHERE telegram_username=?)', (telegram_username,)).fetchone()
         return bool(result[0])
 
-    def get_referrals(self, telegram_id: str) -> list[tuple]:
+    def get_referrals(self, telegram_id: str) -> list:
         return self.cursor.execute('SELECT * FROM users WHERE refferer_id = ?', (telegram_id,)).fetchall()
         
     #endregion
 
     #region Promocodes
-    def add_promocode(self, code: str, creator_id: str, max_uses: int, valid_until: str, amount_of_money: int | None, amount_of_sale: int | None) -> None:
+    def add_promocode(self, code: str, creator_id: str, max_uses: int, valid_until: str, amount_of_money: int, amount_of_sale: int) -> None:
         self.cursor.execute(
             'INSERT INTO promocodes (code, who_created_telegram_id, max_amount_uses, valid_until, amount_of_money, amount_of_sale) VALUES (?, ?, ?, ?, ?, ?)',
             (code, creator_id, max_uses, valid_until, amount_of_money, amount_of_sale)
         )
         self.connection.commit()
 
-    def get_promocode(self, code: str) -> tuple | None:
+    def get_promocode(self, code: str) -> tuple:
         promo = self.cursor.execute('SELECT * FROM promocodes WHERE code = ?', (code,)).fetchone()
         
         if not promo:
@@ -120,7 +120,7 @@ class Database:
             
         return promo
 
-    def get_all_promocodes(self) -> list[tuple]:
+    def get_all_promocodes(self) -> list:
         """Получает все действующие промокоды из базы данных"""
         # Получаем все промокоды
         promos = self.cursor.execute('SELECT * FROM promocodes').fetchall()
@@ -189,7 +189,7 @@ class Database:
             self.cursor.execute(query, params)
             self.connection.commit()
 
-    def get_promo_users(self, code: str) -> list[str]:
+    def get_promo_users(self, code: str) -> list:
         promo = self.get_promocode(code)
         if not promo or not promo[6]:
             return []

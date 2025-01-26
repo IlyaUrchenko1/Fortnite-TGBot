@@ -117,6 +117,36 @@ async def donate_confirm(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     await state.update_data(user_id=user_id)
     
+    # Получаем данные пользователя из БД
+    user = db.get_user(telegram_id=user_id)
+    if not user:
+        await callback.message.edit_text(
+            "❌ Ошибка получения данных пользователя",
+            reply_markup=to_home_menu_inline()
+        )
+        await state.clear()
+        return
+
+    # Получаем цену без символа ₽
+    price = int(user_data.get('price').replace('₽', ''))
+    balance = int(user[3])  # Получаем баланс пользователя
+
+    # Проверяем достаточно ли средств
+    if balance < price:
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="add_balance")],
+            [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_packages")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="to_home_menu")]
+        ])
+        await callback.message.edit_text(
+            f"❌ Недостаточно средств на балансе!\n\n"
+            f"💰 Необходимо: {price}₽\n"
+            f"💳 Ваш баланс: {balance}₽\n\n"
+            "📥 Нажмите кнопку ниже, чтобы пополнить баланс",
+            reply_markup=keyboard
+        )
+        return
+    
     await callback.message.bot.send_message(
         GROUP_ID_SERVICE_PROVIDER,
         f"🔔 Пользователь @{callback.from_user.username or 'Без username'} (ID: {user_id}) "

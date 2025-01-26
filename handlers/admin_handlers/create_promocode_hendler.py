@@ -283,6 +283,7 @@ async def process_valid_days(message: Message, state: FSMContext):
             
             await message.answer(success_message, reply_markup=get_back_button())
             await state.clear()
+            await state.set_state(CreatePromoStates.waiting_for_code)
             
         except ValueError:
             await message.answer(
